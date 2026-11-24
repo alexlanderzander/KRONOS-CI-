@@ -37,3 +37,4 @@ jobs:
           persist-credentials: false
       - run: python3 checks/oidc_preflight.py
       - run: python3 checks/broker_preflight.py
+      - run: python3 checks/synthetic_job_probe.py
