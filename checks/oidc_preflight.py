@@ -53,7 +53,7 @@ def validate_claims(claims, env):
     if any(str(claims.get(k, "")) != v for k, v in expected(env).items()):
         raise ValueError("OIDC identity mismatch")
 
-def request_assertion(env):
+def request_assertion(env, audience=AUDIENCE):
     endpoint = env["ACTIONS_ID_TOKEN_REQUEST_URL"]
     parsed = urllib.parse.urlsplit(endpoint)
     host = parsed.hostname or ""
@@ -61,7 +61,7 @@ def request_assertion(env):
             or parsed.username or parsed.password or parsed.fragment
             or parsed.port not in (None, 443)):
         raise ValueError("invalid token endpoint")
-    endpoint += ("&" if parsed.query else "?") + urllib.parse.urlencode({"audience": AUDIENCE})
+    endpoint += ("&" if parsed.query else "?") + urllib.parse.urlencode({"audience": audience})
     req = urllib.request.Request(endpoint, headers={
         "Authorization": "Bearer " + env["ACTIONS_ID_TOKEN_REQUEST_TOKEN"],
         "Accept": "application/json",
