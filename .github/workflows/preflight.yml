@@ -1,0 +1,38 @@
+name: Kronos public CI preflight
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/preflight.yml', 'checks/**', 'README.md']
+  pull_request:
+    paths: ['.github/workflows/preflight.yml', 'checks/**']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: kronos-preflight-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - run: python3 -m unittest discover -s checks -p 'test_*.py'
+  oidc-preflight:
+    needs: tests
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 4
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      CI_REPO_ID: ${{ github.repository_id }}
+      CI_OWNER_ID: ${{ github.repository_owner_id }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - run: python3 checks/oidc_preflight.py
