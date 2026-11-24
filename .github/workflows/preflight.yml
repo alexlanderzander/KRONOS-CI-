@@ -24,7 +24,7 @@ jobs:
     needs: tests
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
-    timeout-minutes: 8
+    timeout-minutes: 15
     permissions:
       contents: read
       id-token: write
@@ -37,4 +37,4 @@ jobs:
           persist-credentials: false
       - run: python3 checks/oidc_preflight.py
       - run: python3 checks/broker_preflight.py
-      - run: python3 checks/scoped_node_gate.py
+      - run: python3 checks/chunked_node_gate.py
