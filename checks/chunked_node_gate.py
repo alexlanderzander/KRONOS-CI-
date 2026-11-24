@@ -49,6 +49,7 @@ def materialize(manifest, job, workspace):
     if not isinstance(files,list) or not 2<=len(files)<=64 or not isinstance(obj["minimum_tests"],int) or not 1<=obj["minimum_tests"]<=1000:
         raise RuntimeError("file bounds")
     seen, tests, index, total = set(), [], 0, 0
+    auth = request_assertion(os.environ)
     for f in files:
         if set(f)!={"path","sha","bytes","parts"} or not isinstance(f["path"],str) or not SAFE_PATH.fullmatch(f["path"]) or f["path"] in seen or not HEX40.fullmatch(f["sha"]) or not isinstance(f["bytes"],int) or not 1<=f["bytes"]<=1400000:
             raise RuntimeError("invalid file")
@@ -56,7 +57,9 @@ def materialize(manifest, job, workspace):
         for p in f["parts"]:
             if set(p)!={"index","bytes","sha256"} or p["index"]!=index or not HEX64.fullmatch(p["sha256"]) or not isinstance(p["bytes"],int) or not 1<=p["bytes"]<=32000 or index>=128:
                 raise RuntimeError("invalid part")
-            part=call("part/"+str(index),200,request_assertion(os.environ),method="GET")
+            if index and index % 8 == 0:
+                auth = request_assertion(os.environ)
+            part=call("part/"+str(index),200,auth,method="GET")
             data=part["content"].encode("utf-8")
             if part["index"]!=index or len(data)!=p["bytes"] or part["sha256"]!=p["sha256"] or hashlib.sha256(data).hexdigest()!=p["sha256"]:
                 raise RuntimeError("part integrity")
@@ -86,6 +89,7 @@ def main():
         raise RuntimeError("invalid image")
     auth=request_assertion(os.environ)
     call("claim",401)
+    call("part/0",401,method="GET")
     call("manifest",409,auth,method="GET")
     job=call("claim",200,auth)
     if job["scope"]!="node-test-v2" or not HEX40.fullmatch(job["revision"]) or not HEX40.fullmatch(job["source_tree"]) or not HEX64.fullmatch(job["bundle_sha256"]):
@@ -115,6 +119,7 @@ def main():
         bad=dict(receipt,revision="0"*40)
         call("result",422,request_assertion(os.environ),json.dumps(bad,separators=(",",":")).encode())
         verdict=call("result",200,request_assertion(os.environ),json.dumps(receipt,separators=(",",":")).encode())
+        call("result",409,request_assertion(os.environ),json.dumps(receipt,separators=(",",":")).encode())
         call("manifest",409,request_assertion(os.environ),method="GET")
         call("part/0",409,request_assertion(os.environ),method="GET")
         if verdict!={"accepted":True,"state":"passed"} or result.returncode!=0:
