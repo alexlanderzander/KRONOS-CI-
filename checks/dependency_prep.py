@@ -93,8 +93,9 @@ def main():
     with tempfile.TemporaryDirectory(prefix="private-deps-",dir=os.environ["RUNNER_TEMP"]) as directory:
         root=Path(directory)
         work=root/"work"
-        work.mkdir(mode=0o777)
-        work.chmod(0o777)
+        if os.getuid()==0:
+            raise RuntimeError('Runner must be unprivileged')
+        work.mkdir(mode=0o700)
         (work/"package.json").write_text(json.dumps(x["package"],separators=(",",":")),encoding="utf-8")
         (work/"package.json").chmod(0o444)
         log=root/"private.log"
@@ -102,7 +103,7 @@ def main():
         # Only public registry dependency resolution; scripts are disabled.
         docker=["docker","run","--rm","--pull","never","--read-only",
                 "--cap-drop","ALL","--security-opt","no-new-privileges",
-                "--user","65534:65534","--pids-limit","256","--memory","3g","--cpus","2",
+                "--user",str(os.getuid())+":"+str(os.getgid()),"--pids-limit","256","--memory","3g","--cpus","2",
                 "--tmpfs","/tmp:rw,nosuid,size=1g","--env","HOME=/tmp",
                 "--env","NPM_CONFIG_CACHE=/tmp/npm-cache","--env","NPM_CONFIG_REGISTRY=https://registry.npmjs.org/",
                 "--env","NPM_CONFIG_IGNORE_SCRIPTS=true","--env","NPM_CONFIG_UPDATE_NOTIFIER=false",
