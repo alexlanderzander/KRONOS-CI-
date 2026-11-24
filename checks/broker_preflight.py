@@ -11,17 +11,18 @@ BASE = "https://kronos-ci-broker.evinsta9.workers.dev"
 HTTP = urllib.request.build_opener(NoRedirect)
 
 def check(path, code, assertion=None, method="POST", expected=None, label="probe"):
-    headers = {"Accept": "application/json"}
+    headers = {"Accept": "application/json", "User-Agent": "Kronos-project-CI/1.0"}
     if assertion is not None:
         headers["Authorization"] = "Bearer " + assertion
     request = urllib.request.Request(BASE + path, headers=headers, method=method)
     try:
         with HTTP.open(request, timeout=20) as response:
-            status, raw = response.status, response.read(2049)
+            status, raw, headers_out = response.status, response.read(2049), response.headers
     except urllib.error.HTTPError as response:
-        status, raw = response.code, response.read(2049)
+        status, raw, headers_out = response.code, response.read(2049), response.headers
     print(label + ': HTTP ' + str(status) + ' expected ' + str(code), flush=True)
-    if status != code or len(raw) > 2048:
+    print("Response contract: " + json.dumps({"broker": headers_out.get("X-Kronos-CI-Contract") == "preflight-v1", "json": "application/json" in headers_out.get("Content-Type", ""), "challenge": headers_out.get("cf-mitigated") == "challenge", "accessRedirect": bool(headers_out.get("Location"))}), flush=True)
+    if status != code or len(raw) > 2048 or headers_out.get("X-Kronos-CI-Contract") != "preflight-v1":
         raise RuntimeError("unexpected status or response length")
     if expected is not None and json.loads(raw) != expected:
         raise RuntimeError("unexpected preflight contract")
